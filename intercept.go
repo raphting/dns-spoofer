@@ -32,9 +32,10 @@ port := *portPtr
 
 	fmt.Println("Listening on ", port)
 
-	stream := make([]byte, 4096)
+	stream := make([]byte, 512)
+	alices := make(map[uint16]string)
 	for {
-		_, _, err := ln.ReadFrom(stream)
+		_, extAddr, err := ln.ReadFrom(stream)
 
 		if err != nil {
 			fmt.Println(err)
@@ -62,74 +63,40 @@ port := *portPtr
 		printer.NSCOUNT(*myPacket)
 		printer.ARCOUNT(*myPacket)
 
-		printer.QNAME(*myPacket, 0)
-		printer.QTYPE(*myPacket, 0)
-		printer.QCLASS(*myPacket, 0)
-
-
-
-/*
-//Parse Question Section
-		for i := 0; i < int(qdcount); i++ {
-			fmt.Printf("QNAME: ")
-
-			for {
-				byteCounter++
-				var qnameSize int = int(stream[byteCounter])
-
-				if(qnameSize == 0) {break}
-
-				for j := 0; j < qnameSize; j++ {
-					byteCounter++
-					fmt.Printf(string(stream[byteCounter]))
-				}
-
-				fmt.Printf(".")
-			}
-
-			fmt.Println("")
-
-			fmt.Printf("QTYPE: ")
-			var qtype uint16 = uint16(stream[byteCounter+1]) << 8 | uint16(stream[byteCounter+2])
-			switch qtype {
-				case 1:		fmt.Println("A")
-				case 2:		fmt.Println("NS")
-				case 3:		fmt.Println("MD")
-				case 4:		fmt.Println("MF")
-				case 5:		fmt.Println("CNAME")
-				case 6:		fmt.Println("SOA")
-				case 7:		fmt.Println("MB")
-				case 8:		fmt.Println("MG")
-				case 9:		fmt.Println("MR")
-				case 10:	fmt.Println("NULL")
-				case 11:	fmt.Println("WKS")
-				case 12:	fmt.Println("PTR")
-				case 13:	fmt.Println("HINFO")
-				case 14:	fmt.Println("MINFO")
-				case 15:	fmt.Println("MX")
-				case 16:	fmt.Println("TXT")
-				case 252: fmt.Println("AXFR")
-				case 253: fmt.Println("MAILB")
-				case 254: fmt.Println("MAILA")
-				case 255: fmt.Println("*")
-				default:	fmt.Printf("NOT VALID %d \n", qtype)
-			}
-
-			fmt.Printf("QCLASS: ")
-			var qclass uint16 = uint16(stream[byteCounter+3]) << 8 | uint16(stream[byteCounter+4])
-			switch qclass {
-				case 1:		fmt.Println("IN")
-				case 2:		fmt.Println("CS")
-				case 3:		fmt.Println("CH")
-				case 4:		fmt.Println("HS")
-				case 255:	fmt.Println("*")
-				default:	fmt.Printf("NOT VALID %d \n", qclass)
-			}
-
-			byteCounter += 4
+		for i := 0; i < int(myPacket.GetQDCOUNT()); i++ {
+			printer.QNAME(*myPacket, i)
+			printer.QTYPE(*myPacket, i)
+			printer.QCLASS(*myPacket, i)
 		}
 
-*/
+		for i := 0; i < int(myPacket.GetANCOUNT()); i++ {
+			//printer.ARNAME(*myPacket, i, "an")
+		}
+
+		for i := 0; i < int(myPacket.GetNSCOUNT()); i++ {
+			//printer.ARNAME(*myPacket, i, "ns")
+		}
+
+		for i := 0; i < int(myPacket.GetARCOUNT()); i++ {
+			//printer.ARNAME(*myPacket, i, "ar")
+		}
+
+		if myPacket.GetQR() == false {
+			fmt.Println("Send to google")
+			google, _ := net.ResolveUDPAddr("udp4", "8.8.8.8:53")
+			ln.WriteTo(stream, google)
+			alices[myPacket.GetID()] = extAddr.String()
+		}
+
+		if myPacket.GetQR() == true {
+			_, ok := alices[myPacket.GetID()]
+			if ok {
+				fmt.Println("Send to Alice")
+				aliceAddr, _ := net.ResolveUDPAddr("udp4", alices[myPacket.GetID()])
+				delete(alices, myPacket.GetID())
+				ln.WriteTo(stream, aliceAddr)
+			}
+		}
 
 
 	}

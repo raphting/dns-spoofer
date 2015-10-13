@@ -105,7 +105,7 @@ func ARCOUNT(d dns.DNS) {
     fmt.Println("ARCOUNT:", d.GetARCOUNT())
 }
 
-func QNAME(d dns.DNS, num uint16) {
+func QNAME(d dns.DNS, num int) {
   qname, err := d.GetQNAME(num)
   if err != nil {
     fmt.Println(err.Error(), "\n")
@@ -114,7 +114,7 @@ func QNAME(d dns.DNS, num uint16) {
   fmt.Println("QNAME: ", qname)
 }
 
-func QTYPE(d dns.DNS, num uint16) {
+func QTYPE(d dns.DNS, num int) {
   field, err := d.GetQTYPE(num)
 
   if err != nil {
@@ -149,7 +149,7 @@ func QTYPE(d dns.DNS, num uint16) {
   }
 }
 
-func QCLASS(d dns.DNS, num uint16) {
+func QCLASS(d dns.DNS, num int) {
   field, err := d.GetQCLASS(num)
 
   if err != nil {
@@ -166,4 +166,26 @@ func QCLASS(d dns.DNS, num uint16) {
     case 255:	fmt.Println("*")
     default:	fmt.Printf("NOT VALID %d \n", field)
   }
+}
+
+
+func ARNAME(d dns.DNS, num int, field string) {
+  var resString string
+  var ident string
+
+  resString = ""
+  switch field {
+  case "an":
+    resString, _ = d.GetANNAME(num)
+    ident = "ANNAME:"
+  case "ns":
+    resString, _ = d.GetNSNAME(num)
+    ident = "NSNAME:"
+  case "ar":
+    resString, _ = d.GetARNAME(num)
+    ident = "ARNAME:"
+  }
+
+
+  fmt.Println(ident, resString)
 }

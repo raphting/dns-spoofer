@@ -10,11 +10,20 @@ type DNS struct {
   byteCounter uint16 //Keep track of position in packet stream
   ancount, arcount, id, nscount, qdcount uint16
   qds []qd
+  ans []ar
+  nss []ar
+  ars []ar
 }
 
 type qd struct {
   qname string
   qtype, qclass uint16
+}
+
+type ar struct {
+  qd
+  artype, arclass, rdlength uint16
+  ttl int32
 }
 
 func parse16Bit(msb byte, lsb byte) uint16 {
@@ -95,7 +104,7 @@ func (d *DNS) parseARCOUNT(b0, b1 byte) {
   d.arcount = parse16Bit(b0, b1)
 }
 
-func parseQNAME(packet []byte, byteCounter uint16) (string, uint16) {
+func parseXNAME(packet []byte, byteCounter uint16) (string, uint16) {
   qname := make([]byte, 0)
 
   for {
@@ -117,17 +126,52 @@ func parseQNAME(packet []byte, byteCounter uint16) (string, uint16) {
 
 
 func (d *DNS) parseQ(packet []byte) {
-
+  byteCounter := d.byteCounter
   for i := 0; i < int(d.qdcount); i++ {
-    byteCounter := d.byteCounter
     myqd := *new(qd)
-    myqd.qname, byteCounter = parseQNAME(packet, byteCounter)
+    myqd.qname, byteCounter = parseXNAME(packet, byteCounter)
     myqd.qtype = parse16Bit(packet[byteCounter+1], packet[byteCounter+2])
     myqd.qclass = parse16Bit(packet[byteCounter+3], packet[byteCounter+4])
 
     d.qds = append(d.qds, myqd)
     byteCounter += 4
   }
+  d.byteCounter = byteCounter
+}
+
+
+func (d *DNS) parseAR(packet []byte, field string) {
+  byteCounter := d.byteCounter + 1
+  myfield := *new(ar)
+
+  var cnt uint16
+
+
+/*
+  switch field {
+  case "an":
+    myd = *
+    cnt = d.ancount
+  case "ns":
+    myd = *d.nss
+    cnt = d.nscount
+  case "ar":
+    myd = *d.ars
+    cnt = d.arcount
+  }
+*/
+
+  for i := 0; i < int(cnt); i++ {
+    myqd := *new(qd)
+    myqd.qname, byteCounter = parseXNAME(packet, byteCounter)
+    myqd.qtype = parse16Bit(packet[byteCounter+1], packet[byteCounter+2])
+    myqd.qclass = parse16Bit(packet[byteCounter+3], packet[byteCounter+4])
+
+    myfield.qd = myqd
+    d.ans = append(d.ans, myfield)
+    byteCounter += 4
+  }
+  d.byteCounter = byteCounter
 }
 
 /***********GETTER*************************/
@@ -183,25 +227,46 @@ func (d DNS) GetARCOUNT() uint16 {
   return d.arcount
 }
 
-func (d DNS) GetQNAME(num uint16) (string, error) {
+func (d DNS) GetQNAME(num int) (string, error) {
   if int(num) > len(d.qds) - 1 {
     return "", errors.New("dns: out of bounds for qname field.")
   }
   return d.qds[num].qname, nil
 }
 
-func (d DNS) GetQTYPE(num uint16) (uint16, error) {
+func (d DNS) GetQTYPE(num int) (uint16, error) {
   if int(num) > len(d.qds) - 1 {
     return 0, errors.New("dns: out of bounds for qtype field.")
   }
   return d.qds[num].qtype, nil
 }
 
-func (d DNS) GetQCLASS(num uint16) (uint16, error) {
+func (d DNS) GetQCLASS(num int) (uint16, error) {
   if int(num) > len(d.qds) - 1 {
     return 0, errors.New("dns: out of bounds for qtype field.")
   }
   return d.qds[num].qclass, nil
+}
+
+func (d DNS) GetANNAME(num int) (string, error) {
+  if int(num) > len(d.qds) - 1 {
+    return "", errors.New("dns: out of bounds for qname field.")
+  }
+  return d.ans[num].qname, nil
+}
+
+func (d DNS) GetNSNAME(num int) (string, error) {
+  if int(num) > len(d.qds) - 1 {
+    return "", errors.New("dns: out of bounds for qname field.")
+  }
+  return d.nss[num].qname, nil
+}
+
+func (d DNS) GetARNAME(num int) (string, error) {
+  if int(num) > len(d.qds) - 1 {
+    return "", errors.New("dns: out of bounds for qname field.")
+  }
+  return d.ars[num].qname, nil
 }
 
 func Splitter(packet []byte) *DNS {
@@ -222,6 +287,9 @@ func Splitter(packet []byte) *DNS {
   pack.byteCounter = 11 //We processed 11 bytes now
 
   pack.parseQ(packet)
+  pack.parseAR(packet, "an")
+  pack.parseAR(packet, "ns")
+  pack.parseAR(packet, "ar")
 
 
   return pack
