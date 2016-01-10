@@ -70,7 +70,8 @@ port := *portPtr
 		}
 
 		for i := 0; i < int(myPacket.GetANCOUNT()); i++ {
-			//printer.ARNAME(*myPacket, i, "an")
+			printer.ARNAME(*myPacket, i, "an")
+			printer.ANTTL(*myPacket, i)
 		}
 
 		for i := 0; i < int(myPacket.GetNSCOUNT()); i++ {
@@ -82,19 +83,19 @@ port := *portPtr
 		}
 
 		if myPacket.GetQR() == false {
-			fmt.Println("Send to google")
 			google, _ := net.ResolveUDPAddr("udp4", "8.8.8.8:53")
 			ln.WriteTo(stream, google)
+			fmt.Println("Sent to google")
 			alices[myPacket.GetID()] = extAddr.String()
 		}
 
 		if myPacket.GetQR() == true {
 			_, ok := alices[myPacket.GetID()]
 			if ok {
-				fmt.Println("Send to Alice")
 				aliceAddr, _ := net.ResolveUDPAddr("udp4", alices[myPacket.GetID()])
 				delete(alices, myPacket.GetID())
 				ln.WriteTo(stream, aliceAddr)
+				fmt.Println("Sent to Alice")
 			}
 		}
 

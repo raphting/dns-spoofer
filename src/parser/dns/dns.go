@@ -23,7 +23,8 @@ type qd struct {
 type ar struct {
   qd
   artype, arclass, rdlength uint16
-  ttl int32
+  ttl uint32
+  rdata string
 }
 
 func parse16Bit(msb byte, lsb byte) uint16 {
@@ -144,8 +145,6 @@ func (d *DNS) parseAR(packet []byte, field string) {
   byteCounter := d.byteCounter + 1
   myfield := *new(ar)
 
-  var cnt uint16
-
 
 /*
   switch field {
@@ -161,15 +160,30 @@ func (d *DNS) parseAR(packet []byte, field string) {
   }
 */
 
-  for i := 0; i < int(cnt); i++ {
+  for i := 0; i < int(d.ancount); i++ {
     myqd := *new(qd)
     myqd.qname, byteCounter = parseXNAME(packet, byteCounter)
     myqd.qtype = parse16Bit(packet[byteCounter+1], packet[byteCounter+2])
     myqd.qclass = parse16Bit(packet[byteCounter+3], packet[byteCounter+4])
 
     myfield.qd = myqd
+    myfield.ttl = uint32(packet[byteCounter+5]) << 24 |
+                  uint32(packet[byteCounter+6]) << 16 |
+                  uint32(packet[byteCounter+7]) << 8 |
+                  uint32(packet[byteCounter+8])
+
+    myfield.rdlength = parse16Bit(packet[byteCounter+9], packet[byteCounter+10])
+    byteCounter = byteCounter + 11
+
+    rdata := make([]byte, 0)
+    var data uint16
+    for data = 0; data < myfield.rdlength; data++ {
+      rdata = append(rdata, packet[byteCounter])
+      byteCounter++
+    }
+    myfield.rdata = string(rdata)
+
     d.ans = append(d.ans, myfield)
-    byteCounter += 4
   }
   d.byteCounter = byteCounter
 }
@@ -263,10 +277,24 @@ func (d DNS) GetNSNAME(num int) (string, error) {
 }
 
 func (d DNS) GetARNAME(num int) (string, error) {
-  if int(num) > len(d.qds) - 1 {
+  if int(num) > len(d.ars) - 1 {
     return "", errors.New("dns: out of bounds for qname field.")
   }
   return d.ars[num].qname, nil
+}
+
+func (d DNS) GetANRDATA(num int) (string, error) {
+  if int(num) > len(d.ans) - 1 {
+    return "", errors.New("dns: out of bounds for qname field.")
+  }
+  return d.ans[num].rdata, nil
+}
+
+func (d DNS) GetANTTL(num int) (uint32, error) {
+  if int(num) > len(d.ans) - 1 {
+    return 0, errors.New("dns: out of bounds for qname field.")
+  }
+  return d.ans[num].ttl, nil
 }
 
 func Splitter(packet []byte) *DNS {

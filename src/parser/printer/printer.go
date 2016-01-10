@@ -188,4 +188,11 @@ func ARNAME(d dns.DNS, num int, field string) {
 
 
   fmt.Println(ident, resString)
+  rdata, _ := d.GetANRDATA(num)
+  fmt.Println("RDATA", rdata)
+}
+
+func ANTTL(d dns.DNS, num int) {
+  ttl, _ := d.GetANTTL(num)
+  fmt.Println("TTL: ", ttl)
 }
